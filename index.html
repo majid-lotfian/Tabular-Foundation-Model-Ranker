@@ -187,14 +187,21 @@ table.heatmap th.rot{writing-mode:vertical-rl; transform:rotate(180deg); height:
 .small-note{color:var(--ink-muted); font-size:.79rem; margin-top:8px;}
 footer.disclaimer{color:var(--ink-muted); font-size:.79rem; padding-top:8px; max-width:62ch;}
 
+@page{ size: landscape; margin: 14mm 12mm; }
 @media print{
   body{background:#fff; color:#000;}
   .progressbar, .masthead .flow, .privacy-note, #questionnaire, .actions, .details-toggle, #print-btn, #edit-btn{display:none !important;}
+  .wrap{max-width:none; width:100%; padding:0;}
   #results{display:block !important;}
   #heatmap-wrap{display:block !important;}
   .card, .metric-section{border:1px solid #999; break-inside:avoid; box-shadow:none;}
+  .card{padding:14px 16px;}
+  table{font-size:.78rem;}
   .heat-scroll{overflow:visible;}
-  table.heatmap{font-size:8px; min-width:0;}
+  table.heatmap{font-size:7.5px; min-width:0; table-layout:fixed; width:100%;}
+  table.heatmap td, table.heatmap th{padding:2px 1px;}
+  table.heatmap td:first-child, table.heatmap th:first-child{width:90px; padding-left:2px;}
+  table.heatmap th.rot{height:60px;}
 }
 @media (max-width:640px){
   .metric-intro, .question{margin-left:0; padding-left:0;}
