@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpTFM Model Advisor</title>
+<meta name="description" content="Answer a short questionnaire about your deployment priorities and get a ranked, explained shortlist of tabular foundation models.">
+<style>
+:root{
+  --surface-1:#fcfcfb; --page:#f9f9f7; --text-primary:#0b0b0b; --text-secondary:#52514e;
+  --muted:#898781; --gridline:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --mG:#2a78d6; --mP:#1baf7a; --mD:#eda100; --mS:#008300; --mI:#4a3aa7; --mF:#eb6834;
+  --seq-100:#cde2fb; --seq-200:#9ec5f4; --seq-300:#6da7ec; --seq-400:#3987e5;
+  --seq-500:#256abf; --seq-600:#184f95; --seq-700:#0d366b;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --surface-1:#1a1a19; --page:#0d0d0d; --text-primary:#ffffff; --text-secondary:#c3c2b7;
+    --muted:#898781; --gridline:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --mG:#3987e5; --mP:#199e70; --mD:#c98500; --mS:#008300; --mI:#9085e9; --mF:#d95926;
+  }
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--page); color:var(--text-primary);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.5;
+}
+.wrap{max-width:920px; margin:0 auto; padding:32px 20px 80px;}
+header.hero{margin-bottom:28px;}
+h1{font-size:1.7rem; margin:0 0 6px;}
+.sub{color:var(--text-secondary); max-width:64ch;}
+.card{
+  background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+  padding:20px 22px; margin-bottom:20px;
+}
+.metric-section{margin-bottom:26px;}
+.metric-head{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
+.dot{width:12px; height:12px; border-radius:50%; flex:none;}
+.metric-head h2{font-size:1.05rem; margin:0;}
+.metric-intro{color:var(--text-secondary); font-size:.92rem; margin:2px 0 14px;}
+.question{
+  border-top:1px solid var(--gridline); padding:14px 0;
+}
+.question:first-of-type{border-top:none;}
+.q-text{font-size:.96rem; margin-bottom:10px;}
+.q-controls{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+.imp-scale{display:flex; gap:6px; align-items:center;}
+.imp-scale label{
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-size:.68rem; color:var(--muted); cursor:pointer; width:34px;
+}
+.imp-scale input{margin:0;}
+.nonneg{display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text-secondary); cursor:pointer;}
+.nonneg input{margin:0;}
+button{
+  font:inherit; border:none; border-radius:8px; padding:11px 20px; cursor:pointer;
+  background:var(--mG); color:#fff; font-weight:600;
+}
+button.secondary{background:transparent; color:var(--text-primary); border:1px solid var(--border);}
+.actions{display:flex; gap:12px; margin-top:6px; flex-wrap:wrap;}
+.error-msg{color:var(--critical); font-size:.88rem; margin-top:8px; display:none;}
+#results{display:none;}
+.summary-card{border-left:4px solid var(--mG);}
+.summary-card h2{margin:0 0 8px; font-size:1.15rem;}
+table{border-collapse:collapse; width:100%; font-size:.86rem;}
+th,td{padding:6px 8px; text-align:center; border-bottom:1px solid var(--gridline);}
+th{color:var(--text-secondary); font-weight:600;}
+td:first-child, th:first-child{text-align:left;}
+tr.rank1 td{font-weight:700;}
+.rank-badge{
+  display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--mG);
+  color:#fff; font-size:.72rem; font-weight:700; text-align:center; line-height:22px; margin-right:6px;
+}
+.heat-scroll{overflow-x:auto;}
+table.heatmap{font-size:.68rem; min-width:900px;}
+table.heatmap td, table.heatmap th{padding:4px 5px; white-space:nowrap;}
+table.heatmap th.rot{writing-mode:vertical-rl; transform:rotate(180deg); height:70px; font-size:.62rem;}
+.group-row td{font-weight:700; color:#fff; text-align:center; font-size:.62rem; padding:3px;}
+.bar-row{display:flex; align-items:center; gap:10px; margin:6px 0;}
+.bar-label{width:190px; font-size:.82rem; flex:none;}
+.bar-track{flex:1; background:var(--gridline); border-radius:4px; height:14px; position:relative; overflow:hidden;}
+.bar-fill{height:100%; border-radius:4px;}
+.bar-val{width:34px; text-align:right; font-size:.78rem; color:var(--text-secondary); flex:none;}
+.disq-item{border-top:1px solid var(--gridline); padding:10px 0; font-size:.88rem;}
+.disq-item:first-of-type{border-top:none;}
+.tag{display:inline-block; background:var(--critical); color:#fff; font-size:.68rem; border-radius:4px; padding:1px 6px; margin:2px 4px 2px 0;}
+.reasoning{border-top:1px solid var(--gridline); padding:12px 0; font-size:.9rem;}
+.reasoning:first-of-type{border-top:none;}
+.reasoning b{color:var(--mG);}
+.section-title{font-size:1.05rem; margin:0 0 10px;}
+.small-note{color:var(--muted); font-size:.8rem; margin-top:6px;}
+.details-toggle{cursor:pointer; color:var(--mG); font-size:.85rem; background:none; border:none; padding:0; font-weight:600;}
+.hidden{display:none;}
+
+@media print{
+  body{background:#fff; color:#000;}
+  header.hero, #questionnaire, .actions, .details-toggle, #print-btn, #edit-btn{display:none !important;}
+  #results{display:block !important;}
+  .card{border:1px solid #999; break-inside:avoid; box-shadow:none;}
+  .heat-scroll{overflow:visible;}
+  table.heatmap{font-size:8px; min-width:0;}
+  a[href]:after{content:"";}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>OpTFM Model Advisor</h1>
+  <p class="sub">Answer 25 short questions about your deployment context. This tool ranks tabular foundation models against your stated priorities using the same scoring framework as the OpTFM preprint &mdash; no jargon required. Nothing you enter leaves your browser.</p>
+</header>
+
+<form id="questionnaire" class="card"></form>
+
+<section id="results">
+  <div class="card summary-card" id="summary-card"></div>
+  <div class="card">
+    <h2 class="section-title">Ranked models</h2>
+    <div id="ranking-table"></div>
+    <p class="small-note" id="ranking-note"></p>
+  </div>
+  <div class="card">
+    <button type="button" class="details-toggle" id="toggle-heatmap">Show sub-metric detail &darr;</button>
+    <div id="heatmap-wrap" class="hidden" style="margin-top:14px;">
+      <div class="heat-scroll"><div id="heatmap"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Your stated priorities</h2>
+    <div id="weight-chart"></div>
+  </div>
+  <div class="card hidden" id="disqualified-card">
+    <h2 class="section-title">Excluded by your non-negotiable requirements</h2>
+    <div id="disqualified-list"></div>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Why these rankings</h2>
+    <div id="reasoning"></div>
+  </div>
+  <div class="actions">
+    <button id="print-btn" type="button">Download / print report</button>
+    <button id="edit-btn" type="button" class="secondary">Edit my answers</button>
+  </div>
+  <p class="small-note">Scores are derived from documented model design properties (property-based scoring), not direct empirical benchmarking &mdash; see the OpTFM preprint for the full methodology and caveats.</p>
+</section>
+
+</div>
+
+<script>
+const MODELS = [{"name":"TransTab","category":"Prediction-focused","scores":{"IDT":9,"CDT":9,"SR":10,"FAC":9,"ZIA":10,"DAR":8,"MIR":8,"DPC":8,"DRAR":8,"TPDHC":9,"PRD":9,"FLC":9,"DNR":10,"DAS":10,"RUE":10,"CS":10,"FS":10,"TTE":10,"FIC":9,"MTS":9,"EC":9,"LI":9,"PPBS":10,"BAS":10,"IFS":10}},{"name":"TabNet","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":8,"FAC":10,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":10,"TPDHC":10,"PRD":9,"FLC":9,"DNR":9,"DAS":9,"RUE":10,"CS":10,"FS":10,"TTE":10,"FIC":10,"MTS":10,"EC":10,"LI":10,"PPBS":10,"BAS":10,"IFS":10}},{"name":"FT-Transformer","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":10,"FAC":10,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":10,"TPDHC":10,"PRD":10,"FLC":10,"DNR":9,"DAS":10,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":10,"MTS":10,"EC":10,"LI":10,"PPBS":10,"BAS":10,"IFS":10}},{"name":"Tab-Transformer","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":10,"FAC":10,"ZIA":10,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":9,"DNR":10,"DAS":9,"RUE":10,"CS":10,"FS":10,"TTE":10,"FIC":10,"MTS":10,"EC":10,"LI":10,"PPBS":10,"BAS":10,"IFS":10}},{"name":"MediTab","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":10,"FAC":10,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":10,"TPDHC":10,"PRD":10,"FLC":10,"DNR":10,"DAS":10,"RUE":9,"CS":9,"FS":10,"TTE":9,"FIC":10,"MTS":10,"EC":10,"LI":10,"PPBS":9,"BAS":10,"IFS":9}},{"name":"TabPFN","category":"Prediction-focused","scores":{"IDT":10,"CDT":9,"SR":9,"FAC":9,"ZIA":10,"DAR":9,"MIR":9,"DPC":8,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":9,"DNR":8,"DAS":9,"RUE":8,"CS":8,"FS":7,"TTE":8,"FIC":8,"MTS":8,"EC":8,"LI":8,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TabPFN v2","category":"Prediction-focused","scores":{"IDT":10,"CDT":9,"SR":9,"FAC":9,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":9,"TPDHC":10,"PRD":10,"FLC":10,"DNR":8,"DAS":9,"RUE":8,"CS":8,"FS":8,"TTE":9,"FIC":8,"MTS":8,"EC":8,"LI":9,"PPBS":8,"BAS":9,"IFS":8}},{"name":"TabPFN 2.5","category":"Prediction-focused","scores":{"IDT":10,"CDT":9,"SR":9,"FAC":9,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":9,"TPDHC":10,"PRD":10,"FLC":10,"DNR":9,"DAS":9,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":8,"MTS":8,"EC":8,"LI":9,"PPBS":8,"BAS":9,"IFS":8}},{"name":"TabPFN 3","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":10,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":9,"TPDHC":10,"PRD":10,"FLC":10,"DNR":9,"DAS":9,"RUE":10,"CS":9,"FS":9,"TTE":10,"FIC":8,"MTS":8,"EC":8,"LI":9,"PPBS":8,"BAS":9,"IFS":8}},{"name":"SAINT","category":"Prediction-focused","scores":{"IDT":10,"CDT":9,"SR":9,"FAC":9,"ZIA":9,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":10,"FLC":10,"DNR":9,"DAS":10,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":9,"MTS":9,"EC":9,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"NODE","category":"Prediction-focused","scores":{"IDT":8,"CDT":8,"SR":8,"FAC":8,"ZIA":7,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":8,"FLC":7,"DNR":9,"DAS":8,"RUE":9,"CS":9,"FS":8,"TTE":9,"FIC":10,"MTS":10,"EC":10,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"CARTE","category":"Prediction-focused","scores":{"IDT":10,"CDT":10,"SR":10,"FAC":10,"ZIA":9,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":8,"DNR":10,"DAS":9,"RUE":7,"CS":7,"FS":9,"TTE":7,"FIC":9,"MTS":9,"EC":9,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"VIME","category":"Prediction-focused","scores":{"IDT":9,"CDT":7,"SR":9,"FAC":9,"ZIA":6,"DAR":8,"MIR":8,"DPC":8,"DRAR":8,"TPDHC":8,"PRD":9,"FLC":8,"DNR":9,"DAS":9,"RUE":8,"CS":8,"FS":8,"TTE":8,"FIC":7,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TabCaps","category":"Prediction-focused","scores":{"IDT":8,"CDT":7,"SR":8,"FAC":8,"ZIA":5,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":8,"DNR":8,"DAS":8,"RUE":8,"CS":8,"FS":8,"TTE":8,"FIC":8,"MTS":7,"EC":7,"LI":8,"PPBS":8,"BAS":8,"IFS":8}},{"name":"Table2Vec","category":"Prediction-focused","scores":{"IDT":8,"CDT":7,"SR":8,"FAC":7,"ZIA":5,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":8,"DNR":7,"DAS":8,"RUE":9,"CS":8,"FS":8,"TTE":9,"FIC":7,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"P-Transformer","category":"Prediction-focused","scores":{"IDT":9,"CDT":8,"SR":8,"FAC":9,"ZIA":7,"DAR":10,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":9,"DNR":9,"DAS":8,"RUE":8,"CS":8,"FS":8,"TTE":8,"FIC":7,"MTS":8,"EC":7,"LI":7,"PPBS":9,"BAS":9,"IFS":9}},{"name":"FATA-Trans","category":"Prediction-focused","scores":{"IDT":10,"CDT":8,"SR":9,"FAC":10,"ZIA":7,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":9,"FLC":9,"DNR":9,"DAS":9,"RUE":8,"CS":8,"FS":9,"TTE":8,"FIC":9,"MTS":8,"EC":8,"LI":8,"PPBS":9,"BAS":9,"IFS":8}},{"name":"SPROUT","category":"Prediction-focused","scores":{"IDT":9,"CDT":7,"SR":9,"FAC":8,"ZIA":6,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":8,"DNR":8,"DAS":8,"RUE":9,"CS":8,"FS":9,"TTE":9,"FIC":9,"MTS":8,"EC":8,"LI":8,"PPBS":8,"BAS":8,"IFS":8}},{"name":"DTT","category":"Prediction-focused","scores":{"IDT":9,"CDT":8,"SR":8,"FAC":9,"ZIA":7,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":9,"FLC":8,"DNR":8,"DAS":8,"RUE":9,"CS":8,"FS":9,"TTE":8,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TabRet","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":9,"SR":10,"FAC":10,"ZIA":9,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":9,"DNR":9,"DAS":9,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":9,"MTS":8,"EC":9,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"UniTabE","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":10,"SR":10,"FAC":10,"ZIA":10,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":10,"FLC":10,"DNR":9,"DAS":10,"RUE":8,"CS":8,"FS":9,"TTE":8,"FIC":9,"MTS":9,"EC":9,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"XTab","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":10,"ZIA":9,"DAR":9,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":10,"FLC":9,"DNR":9,"DAS":9,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":9,"MTS":9,"EC":9,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"TabDPT","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":9,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":9,"TPDHC":10,"PRD":10,"FLC":9,"DNR":9,"DAS":9,"RUE":9,"CS":9,"FS":9,"TTE":9,"FIC":8,"MTS":8,"EC":8,"LI":9,"PPBS":9,"BAS":9,"IFS":9}},{"name":"TabICL","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":9,"ZIA":10,"DAR":10,"MIR":10,"DPC":10,"DRAR":9,"TPDHC":10,"PRD":10,"FLC":10,"DNR":9,"DAS":9,"RUE":9,"CS":9,"FS":10,"TTE":9,"FIC":8,"MTS":8,"EC":8,"LI":8,"PPBS":9,"BAS":9,"IFS":9}},{"name":"UniTTab","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":10,"ZIA":9,"DAR":8,"MIR":8,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":9,"FLC":10,"DNR":9,"DAS":9,"RUE":8,"CS":8,"FS":9,"TTE":8,"FIC":8,"MTS":8,"EC":8,"LI":8,"PPBS":9,"BAS":9,"IFS":9}},{"name":"TabFM","category":"Transfer / pretraining","scores":{"IDT":10,"CDT":9,"SR":9,"FAC":10,"ZIA":9,"DAR":8,"MIR":8,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":9,"FLC":9,"DNR":9,"DAS":9,"RUE":7,"CS":8,"FS":9,"TTE":7,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":9,"BAS":9,"IFS":8}},{"name":"GReaT","category":"Generative","scores":{"IDT":9,"CDT":8,"SR":10,"FAC":9,"ZIA":10,"DAR":10,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":10,"DNR":8,"DAS":10,"RUE":6,"CS":6,"FS":8,"TTE":6,"FIC":7,"MTS":7,"EC":8,"LI":8,"PPBS":9,"BAS":9,"IFS":9}},{"name":"TabuLa","category":"Generative","scores":{"IDT":9,"CDT":9,"SR":10,"FAC":9,"ZIA":10,"DAR":10,"MIR":9,"DPC":9,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":10,"DNR":8,"DAS":10,"RUE":7,"CS":7,"FS":8,"TTE":7,"FIC":7,"MTS":7,"EC":8,"LI":8,"PPBS":9,"BAS":9,"IFS":9}},{"name":"REaLTabFormer","category":"Generative","scores":{"IDT":9,"CDT":9,"SR":9,"FAC":9,"ZIA":8,"DAR":9,"MIR":8,"DPC":8,"DRAR":9,"TPDHC":9,"PRD":9,"FLC":9,"DNR":8,"DAS":9,"RUE":7,"CS":7,"FS":8,"TTE":7,"FIC":7,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TabLLM","category":"LLM-based","scores":{"IDT":9,"CDT":10,"SR":9,"FAC":8,"ZIA":10,"DAR":6,"MIR":5,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":8,"FLC":9,"DNR":9,"DAS":10,"RUE":5,"CS":5,"FS":6,"TTE":5,"FIC":7,"MTS":7,"EC":8,"LI":7,"PPBS":7,"BAS":7,"IFS":7}},{"name":"TabGPT","category":"LLM-based","scores":{"IDT":10,"CDT":10,"SR":9,"FAC":9,"ZIA":10,"DAR":7,"MIR":6,"DPC":6,"DRAR":7,"TPDHC":7,"PRD":9,"FLC":10,"DNR":9,"DAS":9,"RUE":6,"CS":6,"FS":7,"TTE":6,"FIC":7,"MTS":7,"EC":8,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TABLET","category":"LLM-based","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":7,"ZIA":10,"DAR":6,"MIR":5,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":8,"FLC":9,"DNR":8,"DAS":10,"RUE":5,"CS":5,"FS":6,"TTE":5,"FIC":8,"MTS":7,"EC":8,"LI":7,"PPBS":7,"BAS":7,"IFS":7}},{"name":"HeLM","category":"LLM-based","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":7,"ZIA":9,"DAR":6,"MIR":6,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":7,"FLC":9,"DNR":8,"DAS":9,"RUE":5,"CS":5,"FS":6,"TTE":5,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":7,"BAS":8,"IFS":7}},{"name":"TAPTAP","category":"LLM-based","scores":{"IDT":9,"CDT":9,"SR":9,"FAC":8,"ZIA":9,"DAR":6,"MIR":6,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":8,"FLC":9,"DNR":8,"DAS":9,"RUE":6,"CS":6,"FS":7,"TTE":6,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":7,"BAS":8,"IFS":7}},{"name":"TabText","category":"LLM-based","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":7,"ZIA":9,"DAR":6,"MIR":5,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":8,"FLC":9,"DNR":8,"DAS":9,"RUE":5,"CS":5,"FS":6,"TTE":5,"FIC":7,"MTS":7,"EC":8,"LI":7,"PPBS":7,"BAS":7,"IFS":7}},{"name":"UniPredict","category":"LLM-based","scores":{"IDT":9,"CDT":10,"SR":8,"FAC":8,"ZIA":10,"DAR":6,"MIR":5,"DPC":5,"DRAR":7,"TPDHC":6,"PRD":8,"FLC":9,"DNR":8,"DAS":9,"RUE":5,"CS":5,"FS":6,"TTE":5,"FIC":7,"MTS":7,"EC":8,"LI":7,"PPBS":7,"BAS":7,"IFS":7}},{"name":"GPT4Table","category":"LLM-based","scores":{"IDT":9,"CDT":10,"SR":9,"FAC":8,"ZIA":10,"DAR":5,"MIR":4,"DPC":4,"DRAR":6,"TPDHC":5,"PRD":8,"FLC":10,"DNR":9,"DAS":10,"RUE":4,"CS":4,"FS":5,"TTE":4,"FIC":8,"MTS":7,"EC":8,"LI":7,"PPBS":6,"BAS":6,"IFS":6}},{"name":"TURL","category":"NLP / QA-oriented","scores":{"IDT":8,"CDT":8,"SR":8,"FAC":7,"ZIA":7,"DAR":7,"MIR":7,"DPC":6,"DRAR":7,"TPDHC":7,"PRD":7,"FLC":8,"DNR":7,"DAS":8,"RUE":7,"CS":7,"FS":7,"TTE":7,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TabBERT","category":"NLP / QA-oriented","scores":{"IDT":9,"CDT":8,"SR":9,"FAC":8,"ZIA":7,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":9,"DNR":8,"DAS":9,"RUE":7,"CS":7,"FS":8,"TTE":7,"FIC":7,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TUTA","category":"NLP / QA-oriented","scores":{"IDT":9,"CDT":8,"SR":8,"FAC":9,"ZIA":7,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":9,"DNR":8,"DAS":8,"RUE":7,"CS":7,"FS":8,"TTE":7,"FIC":9,"MTS":8,"EC":8,"LI":8,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TABBIE","category":"NLP / QA-oriented","scores":{"IDT":9,"CDT":8,"SR":8,"FAC":9,"ZIA":7,"DAR":8,"MIR":7,"DPC":7,"DRAR":8,"TPDHC":8,"PRD":8,"FLC":8,"DNR":8,"DAS":9,"RUE":8,"CS":7,"FS":8,"TTE":8,"FIC":8,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TAPEX","category":"NLP / QA-oriented","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":7,"ZIA":9,"DAR":7,"MIR":7,"DPC":6,"DRAR":7,"TPDHC":7,"PRD":7,"FLC":9,"DNR":7,"DAS":8,"RUE":6,"CS":6,"FS":7,"TTE":6,"FIC":9,"MTS":8,"EC":8,"LI":8,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TaBERT","category":"NLP / QA-oriented","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":8,"ZIA":8,"DAR":7,"MIR":7,"DPC":6,"DRAR":7,"TPDHC":7,"PRD":8,"FLC":8,"DNR":8,"DAS":9,"RUE":7,"CS":7,"FS":7,"TTE":7,"FIC":7,"MTS":7,"EC":7,"LI":7,"PPBS":8,"BAS":8,"IFS":8}},{"name":"TAPAS","category":"NLP / QA-oriented","scores":{"IDT":8,"CDT":9,"SR":8,"FAC":7,"ZIA":9,"DAR":7,"MIR":7,"DPC":6,"DRAR":7,"TPDHC":7,"PRD":7,"FLC":9,"DNR":7,"DAS":8,"RUE":6,"CS":6,"FS":7,"TTE":6,"FIC":9,"MTS":8,"EC":8,"LI":8,"PPBS":7,"BAS":8,"IFS":7}}];
+const QUESTIONS = [{"code":"IDT","metric":"G","text":"If this model is deployed at more than one site within the same clinical area (e.g. blood-test data from different hospital labs), how important is consistent performance without retraining at each site?"},{"code":"CDT","metric":"G","text":"How important is it that the model also works well if you later apply it to a related but different type of data (e.g. moving from clinical to administrative records)?"},{"code":"SR","metric":"G","text":"How important is it that the model keeps working if columns are reordered, renamed, split, or recorded in different units between datasets?"},{"code":"FAC","metric":"G","text":"How important is it that the model still performs well if some expected data fields are missing, or new fields appear that it was not trained on?"},{"code":"ZIA","metric":"G","text":"How important is it that the model can be used on a brand-new dataset with no fine-tuning at all, e.g. because you have no labeled data yet?"},{"code":"DAR","metric":"P","text":"How important is it that the model keeps its accuracy when trained on anonymized (de-identified) data rather than raw patient data?"},{"code":"MIR","metric":"P","text":"How important is it that an attacker cannot determine whether a specific patient's record was used to train the model?"},{"code":"DPC","metric":"P","text":"How important are formal differential-privacy guarantees, even if they come at some cost to accuracy?"},{"code":"DRAR","metric":"P","text":"How important is it that an attacker cannot reconstruct actual patient records from the model's outputs or internal parameters?"},{"code":"TPDHC","metric":"P","text":"How important is it that the model avoids sending data to external third-party services and instead keeps computation and data on your own infrastructure?"},{"code":"PRD","metric":"D","text":"How important is it that the model still performs well when trained on a smaller dataset than typical public benchmarks?"},{"code":"FLC","metric":"D","text":"How important is it that the model can learn from only a handful of labeled examples per outcome, e.g. for a rare condition?"},{"code":"DNR","metric":"D","text":"How important is it that the model tolerates the kind of messy, real-world data common in clinical practice: missing values, inconsistent coding, entry errors?"},{"code":"DAS","metric":"D","text":"How important is it that the model can genuinely benefit from synthetic or augmented data when real labeled examples are scarce?"},{"code":"RUE","metric":"S","text":"How important is it that memory and compute costs grow proportionally, not disproportionately, as your dataset grows?"},{"code":"CS","metric":"S","text":"How important is it that the computational demand stays manageable as the amount of data increases, e.g. scaling from one department to a full population programme?"},{"code":"FS","metric":"S","text":"How important is it that performance holds up as the number of input features grows, e.g. a larger EHR extract with more labs, vitals, and codes?"},{"code":"TTE","metric":"S","text":"How important is it that additional training time and data keep producing meaningful improvements, rather than the model plateauing quickly?"},{"code":"FIC","metric":"I","text":"How important is it that the features the model highlights as important actually match what a clinician would expect (e.g. hemoglobin and ferritin for iron deficiency)?"},{"code":"MTS","metric":"I","text":"How important is it that the model's internal structure is simple enough to audit and explain to patients or an ethics board?"},{"code":"EC","metric":"I","text":"How important is it that the model gives similar explanations for similar patients, rather than inconsistent reasoning from case to case?"},{"code":"LI","metric":"I","text":"How important is it that you get a reliable, patient-specific explanation for each individual prediction, not just an average explanation?"},{"code":"PPBS","metric":"F","text":"How important is it that a high-risk prediction is equally reliable across patient subgroups such as age, sex, or ethnicity?"},{"code":"BAS","metric":"F","text":"How important is it that the model does not make existing biases in the training data worse?"},{"code":"IFS","metric":"F","text":"How important is it that the model performs consistently even for patients at the intersection of multiple demographic factors, e.g. older women specifically, not just older patients or women separately?"}];
+const METRICS = {"G":{"label":"Generalizability","intro":"How well the model adapts when your data differs from what it was trained on."},"P":{"label":"Privacy Preservation","intro":"How well the model protects patient data against attacks and regulatory risk."},"D":{"label":"Data-Efficient Learning","intro":"How much the model can achieve with limited, messy, or scarce labeled data."},"S":{"label":"Scalability","intro":"How gracefully the model handles growth in data volume and feature count."},"I":{"label":"Interpretability","intro":"How well the model supports clinicians understanding and trusting its predictions."},"F":{"label":"Fairness and Bias Mitigation","intro":"How equitably the model performs across patient subgroups."}};
+const METRIC_ORDER = ["G","P","D","S","I","F"];
+const METRIC_COLOR_VAR = {G:"--mG",P:"--mP",D:"--mD",S:"--mS",I:"--mI",F:"--mF"};
+
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function buildForm(){
+  const form = document.getElementById('questionnaire');
+  let html = '';
+  for (const met of METRIC_ORDER){
+    const info = METRICS[met];
+    html += `<div class="metric-section">
+      <div class="metric-head"><span class="dot" style="background:var(${METRIC_COLOR_VAR[met]})"></span><h2>${info.label}</h2></div>
+      <p class="metric-intro">${info.intro}</p>`;
+    for (const q of QUESTIONS.filter(q => q.metric === met)){
+      html += `<div class="question" data-code="${q.code}">
+        <div class="q-text">${q.text}</div>
+        <div class="q-controls">
+          <div class="imp-scale">
+            ${[0,1,2,3,4,5].map(v => `<label><input type="radio" name="imp-${q.code}" value="${v}" ${v===2?'checked':''}>${v}</label>`).join('')}
+          </div>
+          <label class="nonneg"><input type="checkbox" name="nonneg-${q.code}"> Non-negotiable requirement</label>
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  html += `<div class="actions">
+    <button type="submit">See recommended models</button>
+  </div>
+  <p class="error-msg" id="error-msg">Please rate at least one criterion above 0 before submitting.</p>`;
+  form.innerHTML = html;
+}
+
+function readAnswers(){
+  const importance = {}, nonneg = {};
+  for (const q of QUESTIONS){
+    const sel = document.querySelector(`input[name="imp-${q.code}"]:checked`);
+    importance[q.code] = sel ? parseInt(sel.value,10) : 0;
+    nonneg[q.code] = document.querySelector(`input[name="nonneg-${q.code}"]`).checked;
+  }
+  return {importance, nonneg};
+}
+
+function computeRanking(importance, nonneg){
+  const survivors = [], disqualified = [];
+  for (const m of MODELS){
+    const failed = QUESTIONS.filter(q => nonneg[q.code] && m.scores[q.code] < 10).map(q => q.code);
+    if (failed.length){
+      disqualified.push({model:m, failed});
+      continue;
+    }
+    let total=0, maxTotal=0;
+    const metricTotals={}, metricMax={};
+    for (const met of METRIC_ORDER){ metricTotals[met]=0; metricMax[met]=0; }
+    for (const q of QUESTIONS){
+      const w = importance[q.code]||0;
+      const s = m.scores[q.code];
+      total += w*s;
+      maxTotal += w*10;
+      metricTotals[q.metric] += w*s;
+      metricMax[q.metric] += w*10;
+    }
+    survivors.push({model:m, total, maxTotal, metricTotals, metricMax});
+  }
+  survivors.sort((a,b)=> b.total - a.total);
+  disqualified.sort((a,b)=> a.failed.length - b.failed.length);
+  return {survivors, disqualified};
+}
+
+function renderSummary(survivors, maxTotal){
+  const card = document.getElementById('summary-card');
+  if (!survivors.length){
+    card.innerHTML = `<h2>No model satisfies every non-negotiable requirement</h2>
+      <p>Every model in the taxonomy fails at least one requirement you marked as non-negotiable. See the "excluded" list below for the closest matches and exactly which requirement each one fails &mdash; you may want to relax one of them.</p>`;
+    return;
+  }
+  const top = survivors[0];
+  const ties = survivors.filter(s => s.total === top.total);
+  const names = ties.map(s => s.model.name).join(' and ');
+  const pct = top.maxTotal ? Math.round(100*top.total/top.maxTotal) : 0;
+  card.innerHTML = `<h2>${ties.length>1 ? 'Jointly recommended: ' : 'Recommended: '}${names}</h2>
+    <p>Scoring ${top.total} out of a possible ${top.maxTotal} (${pct}%) against the priorities you set below${ties.length>1 ? ', tied with ' + (ties.length-1) + ' other model' + (ties.length>2?'s':'') : ''}. See the ranked table and reasoning below for the full picture, including any close alternatives.</p>`;
+}
+
+function renderRankingTable(survivors){
+  const target = document.getElementById('ranking-table');
+  const top10 = survivors.slice(0,10);
+  let rows = '';
+  top10.forEach((s,i) => {
+    rows += `<tr class="${i===0?'rank1':''}">
+      <td><span class="rank-badge">${i+1}</span>${s.model.name}</td>
+      ${METRIC_ORDER.map(met => `<td>${s.metricTotals[met]}/${s.metricMax[met]}</td>`).join('')}
+      <td><b>${s.total}/${s.maxTotal}</b></td>
+    </tr>`;
+  });
+  target.innerHTML = `<table>
+    <thead><tr><th>Model</th>${METRIC_ORDER.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  const note = document.getElementById('ranking-note');
+  note.textContent = survivors.length > 10
+    ? `Showing top 10 of ${survivors.length} models that meet all your non-negotiable requirements.`
+    : `Showing all ${survivors.length} model(s) that meet your non-negotiable requirements.`;
+}
+
+function scoreColor(score){
+  const map = {4:'--seq-100',5:'--seq-200',6:'--seq-300',7:'--seq-400',8:'--seq-500',9:'--seq-600',10:'--seq-700'};
+  return `var(${map[score]||'--seq-100'})`;
+}
+function scoreTextColor(score){ return score>=8 ? '#fff' : cssVar('--text-primary'); }
+
+function renderHeatmap(survivors, importance){
+  const target = document.getElementById('heatmap');
+  const shown = survivors.slice(0,10);
+  const activeCodes = QUESTIONS.filter(q => importance[q.code] > 0).map(q=>q.code);
+  const codes = activeCodes.length ? activeCodes : QUESTIONS.map(q=>q.code);
+
+  let groupRow = '<tr class="group-row"><td></td>';
+  let headRow = '<tr><th></th>';
+  let lastMet = null, span = 0;
+  const spans = [];
+  for (const code of codes){
+    const met = QUESTIONS.find(q=>q.code===code).metric;
+    if (met !== lastMet){ if(lastMet) spans.push({met:lastMet, span}); lastMet=met; span=0; }
+    span++;
+    headRow += `<th class="rot">${code}</th>`;
+  }
+  spans.push({met:lastMet, span});
+  for (const sp of spans){
+    groupRow += `<td colspan="${sp.span}" style="background:var(${METRIC_COLOR_VAR[sp.met]})">${sp.met}</td>`;
+  }
+  groupRow += '</tr>';
+  headRow += '</tr>';
+
+  let bodyRows = '';
+  shown.forEach(s => {
+    bodyRows += `<tr><td style="text-align:left">${s.model.name}</td>`;
+    for (const code of codes){
+      const val = s.model.scores[code];
+      bodyRows += `<td style="background:${scoreColor(val)};color:${scoreTextColor(val)}" title="${code}: ${val}/10">${val}</td>`;
+    }
+    bodyRows += '</tr>';
+  });
+
+  target.innerHTML = `<table class="heatmap">${groupRow}${headRow}<tbody>${bodyRows}</tbody></table>
+    <p class="small-note">Colour scale: lighter = 4 (lowest observed), darker = 10 (maximum). Only criteria you rated above 0 are shown.</p>`;
+}
+
+function renderWeightChart(importance){
+  const target = document.getElementById('weight-chart');
+  let html = '';
+  for (const met of METRIC_ORDER){
+    const codes = QUESTIONS.filter(q=>q.metric===met).map(q=>q.code);
+    const avg = codes.reduce((a,c)=>a+(importance[c]||0),0) / codes.length;
+    const pct = (avg/5)*100;
+    html += `<div class="bar-row">
+      <div class="bar-label">${METRICS[met].label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(${METRIC_COLOR_VAR[met]})"></div></div>
+      <div class="bar-val">${avg.toFixed(1)}</div>
+    </div>`;
+  }
+  target.innerHTML = html + `<p class="small-note">Average importance rating (0&ndash;5) you set per metric.</p>`;
+}
+
+function renderDisqualified(disqualified){
+  const card = document.getElementById('disqualified-card');
+  const list = document.getElementById('disqualified-list');
+  if (!disqualified.length){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const shown = disqualified.slice(0,10);
+  list.innerHTML = shown.map(d => `<div class="disq-item">
+    <b>${d.model.name}</b> &mdash; fails ${d.failed.length} non-negotiable requirement${d.failed.length>1?'s':''}:
+    ${d.failed.map(c => `<span class="tag">${c}: ${d.model.scores[c]}/10</span>`).join('')}
+  </div>`).join('');
+}
+
+function renderReasoning(survivors){
+  const target = document.getElementById('reasoning');
+  if (!survivors.length){ target.innerHTML = '<p>No surviving models to explain &mdash; relax a non-negotiable requirement above.</p>'; return; }
+  const top = survivors.slice(0,5);
+  target.innerHTML = top.map((s,i) => {
+    const pcts = METRIC_ORDER
+      .filter(met => s.metricMax[met] > 0)
+      .map(met => ({met, pct: s.metricTotals[met]/s.metricMax[met]}));
+    if (!pcts.length){
+      return `<div class="reasoning"><b>#${i+1} ${s.model.name}</b>: no rated criteria applied to this model's differentiation (all your importance ratings were 0).</div>`;
+    }
+    pcts.sort((a,b)=>b.pct-a.pct);
+    const strongest = pcts[0], weakest = pcts[pcts.length-1];
+    const overallPct = s.maxTotal ? Math.round(100*s.total/s.maxTotal) : 0;
+    let text = `<b>#${i+1} ${s.model.name}</b> scores ${s.total}/${s.maxTotal} (${overallPct}%) against your stated priorities.`;
+    text += ` Its strongest area relative to your priorities is <b>${METRICS[strongest.met].label}</b> (${Math.round(strongest.pct*100)}% of the weighted maximum you set)`;
+    if (weakest.met !== strongest.met){
+      text += `, while its main relative limitation is <b>${METRICS[weakest.met].label}</b> (${Math.round(weakest.pct*100)}%).`;
+    } else {
+      text += `.`;
+    }
+    return `<div class="reasoning">${text}</div>`;
+  }).join('');
+}
+
+function onSubmit(e){
+  e.preventDefault();
+  const {importance, nonneg} = readAnswers();
+  const totalWeight = Object.values(importance).reduce((a,b)=>a+b,0);
+  const err = document.getElementById('error-msg');
+  if (totalWeight === 0){
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+
+  const {survivors, disqualified} = computeRanking(importance, nonneg);
+  renderSummary(survivors, 0);
+  renderRankingTable(survivors);
+  renderHeatmap(survivors, importance);
+  renderWeightChart(importance);
+  renderDisqualified(disqualified);
+  renderReasoning(survivors);
+
+  document.getElementById('questionnaire').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+buildForm();
+document.getElementById('questionnaire').addEventListener('submit', onSubmit);
+document.getElementById('print-btn').addEventListener('click', () => window.print());
+document.getElementById('edit-btn').addEventListener('click', () => {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('questionnaire').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+document.getElementById('toggle-heatmap').addEventListener('click', (e) => {
+  const wrap = document.getElementById('heatmap-wrap');
+  wrap.classList.toggle('hidden');
+  e.target.textContent = wrap.classList.contains('hidden') ? 'Show sub-metric detail ↓' : 'Hide sub-metric detail ↑';
+});
+</script>
+</body>
+</html>
