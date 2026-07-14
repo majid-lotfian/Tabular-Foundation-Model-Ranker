@@ -172,6 +172,14 @@ table.heatmap th.rot{writing-mode:vertical-rl; transform:rotate(180deg); height:
 .disq-item svg{width:16px; height:16px; color:var(--critical); flex:none; margin-top:3px;}
 .tag{display:inline-block; background:var(--critical); color:#fff; font-size:.66rem; border-radius:4px; padding:2px 7px; margin:2px 5px 2px 0; font-variant-numeric:tabular-nums;}
 
+.super-intro{color:var(--ink-soft); font-size:.9rem; margin:0 0 18px; max-width:66ch;}
+.super-item{display:flex; gap:12px; padding:14px 0; border-top:1px solid var(--line);}
+.super-item:first-of-type{border-top:none;}
+.sm-icon{width:20px; height:20px; color:var(--accent); flex:none; margin-top:2px;}
+.super-item h3{font-family:var(--font-display); font-weight:400; font-size:1rem; margin:0 0 4px;}
+.super-item .q{font-size:.9rem; font-style:italic; color:var(--ink); margin:0 0 4px;}
+.super-item .why{font-size:.85rem; color:var(--ink-soft); margin:0;}
+.super-table-wrap{margin-top:18px;}
 .reasoning{border-top:1px solid var(--line); padding:14px 0; font-size:.92rem; display:flex; gap:12px;}
 .reasoning:first-of-type{border-top:none;}
 .reasoning .rank-badge{margin-top:1px;}
@@ -245,6 +253,13 @@ footer.disclaimer{color:var(--ink-muted); font-size:.79rem; padding-top:8px; max
   </div>
 
   <div class="card">
+    <h2 class="section-title">Beyond the ranking: four deployment questions</h2>
+    <p class="super-intro">These four scores reuse the same priorities you set above, just grouped differently to answer specific practical questions. They do not change the ranking above. Use them to understand a top model's profile in more depth, or to help choose between two closely ranked options.</p>
+    <div id="super-explain"></div>
+    <div class="super-table-wrap" id="super-table"></div>
+  </div>
+
+  <div class="card">
     <button type="button" class="details-toggle" id="toggle-heatmap" aria-expanded="false">
       Show sub-metric detail
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
@@ -286,6 +301,9 @@ const METRICS = {"G":{"label":"Generalizability","intro":"How well the system ke
 const METRIC_ORDER = ["G","P","D","S","I","F"];
 const METRIC_COLOR_VAR = {G:"--mG",P:"--mP",D:"--mD",S:"--mS",I:"--mI",F:"--mF"};
 const METRIC_ICON = {"G":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.3"/><circle cx="18" cy="7" r="2.3"/><circle cx="12" cy="18" r="2.3"/><path d="M8.1 8.3 10.2 16M15.9 8.3 13.8 16M8.5 7h7"/></svg>`,"P":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.5c0 5-3 8.3-7 9.3-4-1-7-4.3-7-9.3V6l7-2.8z"/><path d="M8.8 12l2.2 2.2 4.2-4.4"/></svg>`,"D":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V13M11 19V8M18 19V14.5"/><path d="M2.5 19h19"/></svg>`,"S":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5a7.5 7.5 0 0 1 15 0"/><path d="M12 16.5 15.7 11"/><circle cx="12" cy="16.5" r="1.1"/></svg>`,"I":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.3 18.2h5.4M10.2 21h3.6"/><path d="M12 3.3a6.2 6.2 0 0 0-3.6 11.2c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6.2 6.2 0 0 0 12 3.3z"/></svg>`,"F":`<svg class="m-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v17.5M7.3 20.5h9.4"/><path d="M4.2 8h6.2M13.6 8h6.2"/><path d="M4.2 8 1.8 13a2.6 2.6 0 0 0 5 0L4.2 8zM19.8 8l-2.4 5a2.6 2.6 0 0 0 5 0l-2.6-5z"/></svg>`};
+const SUPER_METRICS = {"TLC":{"label":"Transfer Learning Capacity","question":"Can this model be rolled out safely across more than one site without retraining at each one?","why":"Useful when you are planning a multi-site rollout. It combines how well the model generalizes across sites with the privacy and data-efficiency properties that a multi-site deployment specifically depends on.","codes":["IDT","CDT","ZIA","FAC","SR","MIR","TPDHC","DNR","DAS"]},"MR":{"label":"Model Resilience","question":"Will this model keep working through the kind of disruption real deployments face, such as an EHR system update or a security review?","why":"Useful for judging operational durability rather than day-one performance. It brings together tolerance for structural and data changes with resistance to a specific privacy attack, the things most likely to be tested at once during a system change.","codes":["SR","FAC","MIR","DNR"]},"EPT":{"label":"Efficiency-Privacy Trade-off","question":"Can this model meet your privacy and regulatory requirements while still running efficiently at the scale you need?","why":"Useful for spotting a model that looks strong on privacy and on scalability individually, but is a weaker fit once both are required together, a common real-world constraint that single-dimension scores can hide.","codes":["DAR","MIR","DPC","DRAR","TPDHC","PRD","FLC","DNR","DAS","RUE","CS","FS","TTE"]},"CT":{"label":"Clinical Trustworthiness","question":"Would this model pass review by a clinical ethics or governance committee?","why":"Combines interpretability and fairness, the two properties governance bodies most commonly require before approving a clinical AI system. A model can rank well overall and still fall short here.","codes":["FIC","MTS","EC","LI","PPBS","BAS","IFS"]}};
+const SUPER_ORDER = ["TLC","MR","EPT","CT"];
+const SUPER_ICON = {"TLC":`<svg class="sm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6-5.8 6-10.2A6 6 0 0 0 6 10.8C6 15.2 12 21 12 21z"/><circle cx="12" cy="10.6" r="2.1"/></svg>`,"MR":`<svg class="sm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 0 1 12.7-5.4L19.5 8"/><path d="M19.5 4v4h-4"/><path d="M19.5 12a7.5 7.5 0 0 1-12.7 5.4L4.5 16"/><path d="M4.5 20v-4h4"/></svg>`,"EPT":`<svg class="sm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M8 8l-4 4 4 4"/><path d="M16 8l4 4-4 4"/></svg>`,"CT":`<svg class="sm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.2h6a1 1 0 0 1 1 1V6H8v-.8a1 1 0 0 1 1-1z"/><rect x="5" y="6" width="14" height="15" rx="1.6"/><path d="M9 13.2l2.2 2.2 4.3-4.4"/></svg>`};
 
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
@@ -410,6 +428,49 @@ function renderRankingTable(survivors){
     : `Showing all ${survivors.length} model(s) that meet your strict requirements.`;
 }
 
+function computeSuperMetric(entry, importance, codes){
+  let total=0, max=0;
+  for (const c of codes){
+    const w = importance[c]||0;
+    total += w * entry.model.scores[c];
+    max += w * 10;
+  }
+  return {total, max, pct: max ? Math.round(100*total/max) : null};
+}
+
+function renderSuperMetrics(survivors, importance){
+  const explainTarget = document.getElementById('super-explain');
+  explainTarget.innerHTML = SUPER_ORDER.map(sm => {
+    const info = SUPER_METRICS[sm];
+    return `<div class="super-item">
+      ${SUPER_ICON[sm]}
+      <div>
+        <h3>${info.label} (${sm})</h3>
+        <p class="q">${info.question}</p>
+        <p class="why">${info.why}</p>
+      </div>
+    </div>`;
+  }).join('');
+
+  const tableTarget = document.getElementById('super-table');
+  if (!survivors.length){ tableTarget.innerHTML = ''; return; }
+  const top10 = survivors.slice(0,10);
+  const withSuper = top10.map(s => {
+    const supers = {};
+    for (const sm of SUPER_ORDER) supers[sm] = computeSuperMetric(s, importance, SUPER_METRICS[sm].codes);
+    return {s, supers};
+  });
+  let rows = withSuper.map(({s, supers}, i) => `<tr class="${i===0?'rank1':''}">
+    <td><span class="rank-badge">${i+1}</span>${s.model.name}</td>
+    ${SUPER_ORDER.map(sm => `<td>${supers[sm].pct===null ? 'n/a' : supers[sm].pct+'%'}</td>`).join('')}
+  </tr>`).join('');
+  tableTarget.innerHTML = `<div class="heat-scroll"><table>
+    <thead><tr><th>Model</th>${SUPER_ORDER.map(sm=>`<th>${sm}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <p class="small-note">Each value is that model's score on the super-metric as a percentage of the maximum achievable under your stated priorities.</p>`;
+}
+
 function scoreColor(score){
   const map = {4:'--seq-100',5:'--seq-200',6:'--seq-300',7:'--seq-400',8:'--seq-500',9:'--seq-600',10:'--seq-700'};
   return `var(${map[score]||'--seq-100'})`;
@@ -507,6 +568,7 @@ function onSubmit(e){
   const {survivors, disqualified} = computeRanking(importance, nonneg);
   renderSummary(survivors);
   renderRankingTable(survivors);
+  renderSuperMetrics(survivors, importance);
   renderHeatmap(survivors, importance);
   renderWeightChart(importance);
   renderDisqualified(disqualified);
